@@ -1,0 +1,8 @@
+# requirements.txt
+streamlit==1.37.0
+pandas==2.2.2
+python-dotenv==1.0.1
+SQLAlchemy==2.0.31
+pyodbc==5.1.0
+plotly==5.22.0
+streamlit-option-menu==0.3.6 
