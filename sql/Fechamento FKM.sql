@@ -125,7 +125,7 @@ BASE AS (
             WHERE IdUsuario = OC.IdUsuarioCriacao
         ) AS USU
     WHERE
-        NF.DataCriacao BETWEEN '2025-01-01' AND '2025-08-01'
+        NF.DataCriacao BETWEEN '2025-01-01' AND '2025-12-31'
         AND OS.SituacaoOrdemServico <> 'Cancelada'
 )
 

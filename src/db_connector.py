@@ -6,7 +6,6 @@ import sqlalchemy
 from dotenv import load_dotenv
 from urllib.parse import quote_plus
 
-# Carrega as variáveis de ambiente do arquivo .env
 load_dotenv()
 
 def get_db_connection():
