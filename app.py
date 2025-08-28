@@ -6,15 +6,11 @@ import numpy as np
 import os
 import plotly.express as px
 from streamlit_option_menu import option_menu
-
-# Importar as funções do nosso conector
 from src.db_connector import get_db_connection, get_raw_data
 
-# --- Configuração da Página (Layout Wide por padrão) ---
+
 st.set_page_config(page_title="Dashboard Grupo Gritsch", layout="wide")
 
-# --- FUNÇÕES DE CARREGAMENTO DE DADOS ---
-# Colocamos a função de carregamento aqui para ser acessível por todas as "páginas"
 @st.cache_data
 def carregar_dados_manutencao():
     # (O código desta função é o mesmo que já tínhamos, sem alterações)
@@ -28,7 +24,10 @@ def carregar_dados_manutencao():
     except Exception as e:
         st.error(f"Ocorreu um erro ao buscar os dados: {e}")
         return pd.DataFrame()
-    # Tratamento de Dados
+    
+    
+    
+    
     df['DataCriacao'] = pd.to_datetime(df['DataCriacao'], errors='coerce')
     df['Mes/Ano'] = df['DataCriacao'].dt.to_period('M')
     df['ValorTotal'] = df['ValorTotal'].fillna(0)
@@ -44,15 +43,21 @@ def carregar_dados_manutencao():
         'Gritsch Curitiba ECT': 'SUL', 'Gritsch Salvador': 'NORDESTE', 'Gritsch Guarapuava': 'SUL', 'Gritsch Palmas': 'NORTE'
     }
     df['Regiao'] = df['FILIAL'].map(mapa_regiao)
-    df['Regiao'].fillna('Regiao Nao definida', inplace=True)
+    df['Regiao']= df['Regiao'].fillna('Regiao Nao definida')
+    
     conditions = [
         (df['FILIAL'].str.contains('GRITSCH', case=False, na=False)),
         (df['FILIAL'].str.contains('REFERÊNCIA', case=False, na=False)),
         (df['FILIAL'].str.contains('RATEIO', case=False, na=False)),
     ]
     choices = ['Gritsch', 'Referência', 'Rateio']
-    df['Empresa'] = np.select(conditions, choices, default='Outro')
+    df['Empresa'] = np.select(conditions, choices, default='Verificar')
+    
     return df
+
+
+
+
 
 # --- FUNÇÕES QUE REPRESENTAM CADA PÁGINA ---
 def pagina_manutencao():

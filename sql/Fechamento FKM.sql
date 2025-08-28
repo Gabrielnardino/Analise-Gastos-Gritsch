@@ -1,6 +1,6 @@
 
 ;WITH MAPEAMENTO AS (
-    -- CTE de Mapeamento de Naturezas de Despesa
+    -- CTE de Mapeamento de Naturezas de Despesa Correta
     SELECT * FROM (VALUES
         ('01.01 - DIREÇÃO', '03.03 - MANUTENÇÃO DE VEÍCULOS'), 
         ('01.02 - FREIOS', '03.03 - MANUTENÇÃO DE VEÍCULOS'),
@@ -101,7 +101,9 @@ BASE AS (
         CO.UnidadeDeFaturamento AS UnidadeDeFaturamentoContrato, 
         USU.IdUsuario, 
         USU.Nome,
-        m.Unidade_de_Destino -- Coluna do último movimento, obtida de forma segura pelo OUTER APPLY
+        m.Unidade_de_Origem,
+        m.Unidade_de_Destino 
+        
 
     FROM
         dbo.ItensOrdemServico AS OS
@@ -112,7 +114,7 @@ BASE AS (
         LEFT JOIN dbo.OcorrenciasManutencao AS OC ON OC.IdOcorrencia = OS.IdOcorrencia
         LEFT JOIN dbo.ContratosComerciais AS CO ON CO.IdContratoComercial = OC.IdContratoComercial
         OUTER APPLY (
-            SELECT TOP 1 Unidade_de_Destino
+            SELECT TOP 1 Unidade_de_Origem, Unidade_de_Destino
             FROM dbo.Movimentos
             WHERE Placa = OS.Placa AND Data_da_movimentação <= NF.DataCriacao
             ORDER BY Data_da_movimentação DESC
@@ -127,115 +129,137 @@ BASE AS (
         AND OS.SituacaoOrdemServico <> 'Cancelada'
 )
 
--- SELECT Final com colunas organizadas e lógicas de negócio aplicadas
-SELECT
-    -- Identificadores Principais
-    b.IdNF, 
-    b.NumeroNF, 
-    b.OrdemServico, 
-    b.Ocorrencia, 
-    b.OrdemCompra, 
-    b.Placa, 
-    b.IdVeiculo,
+SELECT *
+FROM(-- SELECT Final com colunas organizadas e lógicas de negócio aplicadas
+    SELECT
+        -- Identificadores Principais
+        b.IdNF, 
+        b.NumeroNF, 
+        b.OrdemServico, 
+        b.Ocorrencia, 
+        b.OrdemCompra, 
+        b.Placa, 
+        b.IdVeiculo,
 
-    -- Detalhes do Item/Serviço
-    b.DescricaoItem, 
-    b.TipoItem, 
-    b.Tipo, 
-    b.TipoOrdemCompra, 
-    b.IdGrupoDespesa, 
-    b.GrupoDespesa, 
-    b.CodigoCompleto,
-    b.DescricaoCompleta, 
-    b.Quantidade, 
-    b.ValorUnitario, 
-    b.ValorTotal,
+        -- Detalhes do Item/Serviço
+        b.DescricaoItem, 
+        b.TipoItem, 
+        b.Tipo, 
+        b.TipoOrdemCompra, 
+        b.IdGrupoDespesa, 
+        b.GrupoDespesa, 
+        b.CodigoCompleto,
+        b.DescricaoCompleta, 
+        b.Quantidade, 
+        b.ValorUnitario, 
+        b.ValorTotal,
 
-    -- Status e Situações
-    b.SituacaoOrdemServico, 
-    b.SituacaoOcorrencia, 
-    b.SituacaoVeiculo,
+        -- Status e Situações
+        b.SituacaoOrdemServico, 
+        b.SituacaoOcorrencia, 
+        b.SituacaoVeiculo,
 
-    -- Informações de Filial e Unidades
-    b.IdUnidadeDeFaturamento, 
-    b.UnidadeDeFaturamento, 
-    b.IdFilialOperacional, 
-    b.FilialOperacional,
+        -- Informações de Filial e Unidades
+        b.IdUnidadeDeFaturamento, 
+        b.UnidadeDeFaturamento, 
+        b.IdFilialOperacional, 
+        b.FilialOperacional,
 
-    -- Datas Relevantes
-    b.DataCriacao, 
-    b.DataCriacaoOrdemServico, 
-    b.DataCriacaoOcorrencia, 
-    b.DataEmissao, 
-    b.DataEntrada,
+        -- Datas Relevantes
+        b.DataCriacao, 
+        b.DataCriacaoOrdemServico, 
+        b.DataCriacaoOcorrencia, 
+        b.DataEmissao, 
+        b.DataEntrada,
 
-    -- Fornecedor e Contrato
-    b.IdFornecedor, 
-    b.Fornecedor, 
-    b.IdContratoComercial, 
-    b.UnidadeDeFaturamentoContrato,
+        -- Fornecedor e Contrato
+        b.IdFornecedor, 
+        b.Fornecedor, 
+        b.IdContratoComercial, 
+        b.UnidadeDeFaturamentoContrato,
 
-    -- Usuário
-    b.CriadoPor, 
-    b.IdUsuario, 
-    b.Nome,
+        -- Usuário
+        b.CriadoPor, 
+        b.IdUsuario, 
+        b.Nome,
 
-    -- Natureza Financeira
-    b.NaturezaFinanceira,
+        -- Natureza Financeira
+        b.NaturezaFinanceira,
 
--- ====================================================================
--- COLUNAS CALCULADAS (LÓGICA FINAL, SIMPLIFICADA E ROBUSTA)
--- ====================================================================
+    -- ========================================================================================================================================
+    -- CColuna Para Identificar a regra de Filial Corretamente, abaixo segue todas as regras 
+    -- ========================================================================================================================================
 
--- Lógica Final da Filial, focada em palavras-chave para evitar erros de texto
-CASE
-    -- REGRA 1: Contrato é sempre a maior prioridade.
-    WHEN b.IdContratoComercial IS NOT NULL THEN b.UnidadeDeFaturamentoContrato
-
-    -- REGRA 2: Rateio misto GRI/REF. A segunda maior prioridade.
-    WHEN 
-        (b.UnidadeDeFaturamento LIKE '%GRI%' AND b.FilialOperacional LIKE '%REF%') OR
-        (b.UnidadeDeFaturamento LIKE '%REF%' AND b.FilialOperacional LIKE '%GRI%')
-    THEN 'RATEIO GRI/REF'
-
-    -- REGRA 3: Se a Unidade de Faturamento já está como RATEIO, mantém.
-    WHEN b.UnidadeDeFaturamento LIKE 'RATEIO%' THEN b.UnidadeDeFaturamento
-
-    -- REGRA 4: Bloco principal de rateio, acionado por palavras-chave.
-    -- Esta é a regra que captura todos os outros cenários de rateio.
-    WHEN 
-        b.SituacaoVeiculo IN ('Vendido', 'Disponível para Venda', 'Preparação para Venda') OR
-        b.FilialOperacional LIKE '%VENDA%' OR -- Captura 'VEÍCULOS A VENDA' e 'VEÍCULOS PARA VENDA'
-        b.FilialOperacional LIKE '%DEFINIR%' OR
-        b.FilialOperacional LIKE '%PARTICULARES%' OR
-        b.FilialOperacional LIKE '%VENDIDOS%'
-    THEN
-        CASE
-            -- A ordem aqui é importante: REF primeiro, depois GRI.
-            WHEN b.UnidadeDeFaturamento LIKE '%REF%' THEN 'RATEIO - REF'
-            WHEN b.UnidadeDeFaturamento LIKE '%GRI%' THEN 'RATEIO - GRI'
-            ELSE b.UnidadeDeFaturamento -- Fallback
-        END
-
-    -- REGRA 5: Fallback para o último movimento.
-    WHEN b.Unidade_de_Destino IS NOT NULL THEN b.Unidade_de_Destino
-
-    -- REGRA 6: Último recurso absoluto.
-    ELSE b.FilialOperacional
-END AS FILIAL,
-
-    -- Lógica para Correção da Natureza da Despesa
     CASE
-        -- REGRA 1: Exceção para Pneus e serviços de Recapagem/Recauchutagem
-        WHEN m.NaturezaVinculada = '03.05 - RODAS E PNEUS' AND ((UPPER(TRIM(b.TipoItem)) = 'PEÇA' AND UPPER(b.DescricaoItem) LIKE '%PNEU%') OR (UPPER(TRIM(b.TipoItem)) = 'SERVIÇO' AND UPPER(b.DescricaoItem) LIKE '%RECAP%')) THEN '03.05 - RODAS E PNEUS'
-        -- REGRA 2: Reclassificação do que não é Pneu/Recapagem
-        WHEN m.NaturezaVinculada = '03.05 - RODAS E PNEUS' THEN '03.03 - MANUTENÇÃO DE VEÍCULOS'
-        -- REGRA 3: Padrão para todas as outras naturezas
-        ELSE m.NaturezaVinculada
-    END AS Natureza_Correta
+        -- REGRA 1: Contrato Referencia (maior prioridade).
+        WHEN b.IdContratoComercial IS NOT NULL 
+            THEN b.UnidadeDeFaturamentoContrato
 
-FROM
-    BASE b
-LEFT JOIN
-    MAPEAMENTO m ON UPPER(TRIM(b.DescricaoCompleta)) = UPPER(TRIM(m.DescricaoCompleta))
-;
+        -- REGRA 2: Lógica de Movimentação (alta prioridade).
+        WHEN b.Unidade_de_Destino IS NOT NULL THEN
+            CASE
+                -- Sub-regra A: O destino é uma filial real (não genérica).
+                WHEN 
+                    b.Unidade_de_Destino NOT LIKE '%VENDA%' AND
+                    b.Unidade_de_Destino NOT LIKE '%DEFINIR%' AND
+                    b.Unidade_de_Destino NOT LIKE '%PARTICULARES%' AND
+                    b.Unidade_de_Destino NOT LIKE '%VENDIDOS%'
+                THEN b.Unidade_de_Destino
+            
+                -- Sub-regra B: O destino é genérico, então rateamos pela ORIGEM.
+                ELSE
+                    CASE
+                        WHEN b.Unidade_de_Origem LIKE '%REF%' THEN 'RATEIO - REF'
+                        WHEN b.Unidade_de_Origem LIKE '%GRI%' THEN 'RATEIO - GRI'
+                        ELSE 'RATEIO GRI/REF' -- Se a origem também for genérica
+                    END
+            END
+
+        -- REGRA 3: Rateio misto explícito.
+        WHEN 
+            (b.UnidadeDeFaturamento LIKE '%GRI%' AND b.FilialOperacional LIKE '%REF%') OR
+            (b.UnidadeDeFaturamento LIKE '%REF%' AND b.FilialOperacional LIKE '%GRI%')
+        THEN 'RATEIO GRI/REF'
+
+        -- REGRA 4: Rateio explícito já definido na Unidade de Faturamento.
+        WHEN b.UnidadeDeFaturamento LIKE 'RATEIO%' 
+        THEN b.UnidadeDeFaturamento
+
+        -- REGRA 5: Regra para situação do veiculo/ Unidades e Grupos que estao com status de veiculos para venda ou similar
+        WHEN 
+            b.SituacaoVeiculo IN ('Vendido', 'Disponível para Venda', 'Preparação para Venda') OR
+            b.UnidadeDeFaturamento LIKE '%VENDA%' OR
+            b.UnidadeDeFaturamento LIKE '%DEFINIR%' OR
+            b.UnidadeDeFaturamento LIKE '%PARTICULARES%' OR
+            b.UnidadeDeFaturamento LIKE '%VENDIDOS%' OR
+            b.FilialOperacional LIKE '%VENDA%' OR
+            b.FilialOperacional LIKE '%DEFINIR%' OR
+            b.FilialOperacional LIKE '%PARTICULARES%' OR
+            b.FilialOperacional LIKE '%VENDIDOS%'
+        THEN
+            CASE
+                WHEN b.UnidadeDeFaturamento LIKE '%REF%' OR b.FilialOperacional LIKE '%REF%' THEN 'RATEIO - REF'
+                WHEN b.UnidadeDeFaturamento LIKE '%GRI%' OR b.FilialOperacional LIKE '%GRI%' THEN 'RATEIO - GRI'
+                ELSE 'RATEIO GRI/REF' 
+            END
+
+        -- REGRA 6 (O PADRÃO): Se nenhuma das regras de exceção acima for atendida, use a Filial Operacional.
+        ELSE b.FilialOperacional
+    END AS FILIAL,
+
+
+        -- Lógica para Correção da Natureza da Despesa
+        CASE
+            -- REGRA 1: Exceção para Pneus e serviços de Recapagem/Recauchutagem
+            WHEN m.NaturezaVinculada = '03.05 - RODAS E PNEUS' AND ((UPPER(TRIM(b.TipoItem)) = 'PEÇA' AND UPPER(b.DescricaoItem) LIKE '%PNEU%') OR (UPPER(TRIM(b.TipoItem)) = 'SERVIÇO' AND UPPER(b.DescricaoItem) LIKE '%RECAP%')) THEN '03.05 - RODAS E PNEUS'
+            -- REGRA 2: Reclassificação do que não é Pneu/Recapagem
+            WHEN m.NaturezaVinculada = '03.05 - RODAS E PNEUS' THEN '03.03 - MANUTENÇÃO DE VEÍCULOS'
+            -- REGRA 3: Padrão para todas as outras naturezas
+            ELSE m.NaturezaVinculada
+        END AS Natureza_Correta
+
+    FROM
+        BASE b
+    LEFT JOIN
+        MAPEAMENTO m ON UPPER(TRIM(b.DescricaoCompleta)) = UPPER(TRIM(m.DescricaoCompleta))
+) AS RESULTADO_FINAL;
