@@ -6,8 +6,3 @@ SQLAlchemy==2.0.31
 pyodbc==5.1.0
 plotly==5.22.0
 streamlit-option-menu==0.3.6 
-openpyxl==3.1.2
-pyxlsb==1.0.10
-xlrd==2.0.1
-scipy==1.11.4
-numpy==1.26.4
