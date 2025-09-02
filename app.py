@@ -223,7 +223,7 @@ if not df.empty:
             st.subheader(f"Análise Visual dos Custos - {titulo_principal}")
             dados_grafico = {'Categoria': ['Manutenção Geral', 'Rodas e Pneus', 'Lataria e Pintura'], 'Custo': [custo_manutencao, custo_rodas, custo_lataria]}
             df_grafico = pd.DataFrame(dados_grafico).sort_values('Custo', ascending=False)
-            cores_vivas = ['#1f77b4', '#ff7f0e', '#2ca02c']
+            cores_vivas = ["#1b69a0", '#ff7f0e', '#2ca02c']
             mapa_cores = {'Manutenção Geral': cores_vivas[0], 'Rodas e Pneus': cores_vivas[1], 'Lataria e Pintura': cores_vivas[2]}
             g_col1, g_col2 = st.columns(2)
             with g_col1:
@@ -277,7 +277,7 @@ if not df.empty:
             custo_arla = df_filtrado['custo_arla'].sum()
             dados_grafico_comb = {'Categoria': ['Combustível', 'Arla'], 'Custo': [custo_combustivel, custo_arla]}
             df_grafico_comb = pd.DataFrame(dados_grafico_comb).sort_values('Custo', ascending=False)
-            cores_comb = ['#d62728', '#9467bd'] 
+            cores_comb = ["#e02222", "#1410e0"] 
             mapa_cores_comb = {'Combustível': cores_comb[0], 'Arla': cores_comb[1]}
             g_col1, g_col2 = st.columns(2)
             with g_col1:
